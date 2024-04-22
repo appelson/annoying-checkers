@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkers</title>
+<p id="piecesCount">Number of Pieces: <span id="count">6</span></p>
+<p id="piecesCount2">Sum of Values Outside Red Square: <span id="value_1">0</span></p>
+<p id="piecesCount3">Sum of Values Inside Red Square: <span id="value_2">4</span></p>
+
+<button id="restartButton">Restart</button>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+    }
+
+    canvas {
+        border: 1px solid black;
+    }
+
+    #restartButton {
+        margin-top: 10px;
+        display: block;
+    }
+
+    .number-overlay {
+        position: absolute;
+        font-size: 20px;
+        color: white;
+    }
+</style>
+</head>
+<body>
+<canvas id="checkersCanvas" width="1000" height="1000"></canvas>
+
+<script>
+    const canvas = document.getElementById("checkersCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const NUM_TILES = 20;
+    const SQUARE_SIZE = canvas.width / NUM_TILES;
+    const WHITE = "#ffffff";
+    const BLACK = "#000000";
+    const GRAY = "#808080";
+    const RED = "#ff0000";
+
+    let pieces = [
+        { row: Math.floor(NUM_TILES / 2), col: Math.floor(NUM_TILES / 2), value: 1 }, // Center
+        { row: Math.floor(NUM_TILES / 2), col: Math.floor(NUM_TILES / 2) - 1, value: 0.5 }, // Left
+        { row: Math.floor(NUM_TILES / 2) - 1, col: Math.floor(NUM_TILES / 2), value: 0.25 }, // Top
+        { row: Math.floor(NUM_TILES / 2) - 1, col: Math.floor(NUM_TILES / 2) + 1, value: 0.125}, // To
+        { row: Math.floor(NUM_TILES / 2) - 1, col: Math.floor(NUM_TILES / 2) - 1, value: 0.0625}, // To
+        { row: Math.floor(NUM_TILES / 2), col: Math.floor(NUM_TILES / 2) + 1, value: 0.03125 }, // Right
+        { row: Math.floor(NUM_TILES / 2)+1, col: Math.floor(NUM_TILES / 2) + 1, value: 0.015625 }, // Right
+        { row: Math.floor(NUM_TILES / 2) + 1, col: Math.floor(NUM_TILES / 2), value: 0.0078125 }, // Bottom
+        { row: Math.floor(NUM_TILES / 2) + 1, col: Math.floor(NUM_TILES / 2) -1, value: 0.00390625} // Bottom
+    ];
+    let selectedPiece = null;
+
+    function drawBoard() {
+        for (let row = 0; row < NUM_TILES; row++) {
+            for (let col = 0; col < NUM_TILES; col++) {
+                ctx.fillStyle = (row + col) % 2 === 0 ? WHITE : GRAY;
+                ctx.fillRect(col * SQUARE_SIZE, row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE);
+            }
+        }
+        for (let row = 0; row < NUM_TILES; row++) {
+            for (let col = 0; col < NUM_TILES; col++) {
+                const distanceRow = Math.abs(row - Math.floor(NUM_TILES / 2));
+                const distanceCol = Math.abs(col - Math.floor(NUM_TILES / 2));
+                const maxDistance = distanceRow + distanceCol;
+                const value = "1/" + Math.pow(2, maxDistance);
+                ctx.fillStyle = BLACK;
+                ctx.fillText(value, col * SQUARE_SIZE + SQUARE_SIZE / 3, row * SQUARE_SIZE + SQUARE_SIZE / 2);
+            }
+        }
+        
+        for (const piece of pieces) {
+            ctx.beginPath();
+            ctx.arc(piece.col * SQUARE_SIZE + SQUARE_SIZE / 2, piece.row * SQUARE_SIZE + SQUARE_SIZE / 2, SQUARE_SIZE / 2 - 5, 0, Math.PI * 2);
+            ctx.fillStyle = BLACK;
+            ctx.fill();
+        }
+        
+        drawRedOutline();
+        
+        // Check if all pieces are outside the red box
+        if (pieces.every(piece => piece.row < Math.floor(NUM_TILES / 2) - 1 || piece.row > Math.floor(NUM_TILES / 2) + 1 ||
+                                    piece.col < Math.floor(NUM_TILES / 2) - 1 || piece.col > Math.floor(NUM_TILES / 2) + 1)) {
+            // If all pieces are outside the red box, display "You win Melanie, I love you so much"
+            ctx.font = "100px Arial";
+            ctx.fillStyle = "green";
+            ctx.fillText("You win! ", 200, 500);
+        }
+    }
+    
+    function updatePieceCount() {
+        const countElement = document.getElementById("count");
+        countElement.textContent = pieces.length;
+    }
+    
+    function drawRedOutline() {
+        ctx.strokeStyle = RED;
+        ctx.lineWidth = 3;
+        
+        const startX = Math.floor(NUM_TILES / 2) * SQUARE_SIZE - 1*SQUARE_SIZE;
+        const startY = Math.floor(NUM_TILES / 2) * SQUARE_SIZE - 1*SQUARE_SIZE;
+        const endX = Math.floor(NUM_TILES / 2) * SQUARE_SIZE + 2 * SQUARE_SIZE;
+        const endY = Math.floor(NUM_TILES / 2) * SQUARE_SIZE + 2 * SQUARE_SIZE;
+
+        // Draw top border
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, startY);
+        ctx.stroke();
+
+        // Draw right border
+        ctx.beginPath();
+        ctx.moveTo(endX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        // Draw bottom border
+        ctx.beginPath();
+        ctx.moveTo(startX, endY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        // Draw left border
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(startX, endY);
+        ctx.stroke();
+    }
+    
+    function drawSumValues(sumRed, sumOutOfRed) {
+    // Create a text element for sum values
+    const sumText = document.createElement("p");
+    sumText.textContent = `Sum in the red: ${sumRed.toFixed(2)}, Sum out of the red: ${sumOutOfRed.toFixed(2)}`;
+    sumText.style.position = "absolute";
+    sumText.style.top = "10px";
+    sumText.style.right = "10px";
+    
+    // Append the text element to the body
+    document.body.appendChild(sumText);
+}
+
+function removeSumValues() {
+    // Remove the sum values text element if it exists
+    const sumText = document.querySelector("#sumText");
+    if (sumText) {
+        sumText.remove();
+    }
+}
+
+    function sumRedAndOutOfRedValues() {
+        let sumRed = 0;
+        let sumOutOfRed = 0;
+
+        for (const piece of pieces) {
+            if (
+                piece.row >= Math.floor(NUM_TILES / 2) - 1 &&
+                piece.row <= Math.floor(NUM_TILES / 2) + 1 &&
+                piece.col >= Math.floor(NUM_TILES / 2) - 1 &&
+                piece.col <= Math.floor(NUM_TILES / 2) + 1
+            ) {
+                sumRed += piece.value;
+            } else {
+                sumOutOfRed += piece.value;
+            }
+        }
+
+        return { sumRed, sumOutOfRed };
+    }
+
+    function restartGame() {
+        // Reset pieces to initial positions
+        pieces = [
+            { row: Math.floor(NUM_TILES / 2), col: Math.floor(NUM_TILES / 2), value: 1 }, // Center
+            { row: Math.floor(NUM_TILES / 2), col: Math.floor(NUM_TILES / 2) - 1, value: 0.5 }, // Left
+            { row: Math.floor(NUM_TILES / 2) - 1, col: Math.floor(NUM_TILES / 2), value: 0.25 }, // Top
+            { row: Math.floor(NUM_TILES / 2) - 1, col: Math.floor(NUM_TILES / 2) + 1, value: 0.125}, // To
+            { row: Math.floor(NUM_TILES / 2) - 1, col: Math.floor(NUM_TILES / 2) - 1, value: 0.0625}, // To
+            { row: Math.floor(NUM_TILES / 2), col: Math.floor(NUM_TILES / 2) + 1, value: 0.03125 }, // Right
+            { row: Math.floor(NUM_TILES / 2)+1, col: Math.floor(NUM_TILES / 2) + 1, value: 0.015625 }, // Right
+            { row: Math.floor(NUM_TILES / 2) + 1, col: Math.floor(NUM_TILES / 2), value: 0.0078125 }, // Bottom
+            { row: Math.floor(NUM_TILES / 2) + 1, col: Math.floor(NUM_TILES / 2) -1, value: 0.00390625} // Bottom
+        ];
+
+        drawBoard();
+        updatePieceCount();
+    }
+
+    function sumRedAndOutOfRedValues() {
+    let countRed = 0;
+    let countOutOfRed = 0;
+
+    for (const piece of pieces) {
+        if (
+            piece.row >= Math.floor(NUM_TILES / 2) - 1 &&
+            piece.row <= Math.floor(NUM_TILES / 2) + 1 &&
+            piece.col >= Math.floor(NUM_TILES / 2) - 1 &&
+            piece.col <= Math.floor(NUM_TILES / 2) + 1
+        ) {
+            countRed++;
+        } else {
+            countOutOfRed++;
+        }
+    }
+
+    return { countRed, countOutOfRed };
+}
+
+function drawSumValues(countRed, countOutOfRed) {
+    // Create a text element for sum values
+    const sumText = document.createElement("p");
+    sumText.textContent = `Number of pieces in the red: ${countRed}, Number of pieces out of the red: ${countOutOfRed}`;
+    sumText.style.position = "absolute";
+    sumText.style.top = "10px";
+    sumText.style.right = "10px";
+    sumText.id = "sumText";
+    
+    // Append the text element to the body
+    document.body.appendChild(sumText);
+}
+
+function removeSumValues() {
+    // Remove the sum values text element if it exists
+    const sumText = document.querySelector("#sumText");
+    if (sumText) {
+        sumText.remove();
+    }
+}
+
+function sumValuesOutsideRedSquare() {
+    let sum = 0;
+
+    for (const piece of pieces) {
+        if (
+            piece.row < Math.floor(NUM_TILES / 2) - 1 ||
+            piece.row > Math.floor(NUM_TILES / 2) + 1 ||
+            piece.col < Math.floor(NUM_TILES / 2) - 1 ||
+            piece.col > Math.floor(NUM_TILES / 2) + 1
+        ) {
+            const distanceRow = Math.abs(piece.row - Math.floor(NUM_TILES / 2));
+            const distanceCol = Math.abs(piece.col - Math.floor(NUM_TILES / 2));
+            const maxDistance = distanceRow + distanceCol;
+            const value = 1 / Math.pow(2, maxDistance); // Calculate the value based on distance
+            sum += value; // Add the value to the sum
+        }
+    }
+
+    return sum; // Return the total sum of occupied cell values outside of the red square
+}
+
+function sumValuesInsideRedSquare() {
+    let sum = 0;
+
+    for (const piece of pieces) {
+        if (
+            piece.row >= Math.floor(NUM_TILES / 2) - 1 &&
+            piece.row <= Math.floor(NUM_TILES / 2) + 1 &&
+            piece.col >= Math.floor(NUM_TILES / 2) - 1 &&
+            piece.col <= Math.floor(NUM_TILES / 2) + 1
+        ) {
+            const distanceRow = Math.abs(piece.row - Math.floor(NUM_TILES / 2));
+            const distanceCol = Math.abs(piece.col - Math.floor(NUM_TILES / 2));
+            const maxDistance = distanceRow + distanceCol;
+            const value = 1 / Math.pow(2, maxDistance); // Calculate the value based on distance
+            sum += value; // Add the value to the sum
+        }
+    }
+
+    return sum; // Return the total sum of occupied cell values inside of the red square
+}
+
+
+
+function handleClick(event) {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    const row = Math.floor(mouseY / SQUARE_SIZE);
+    const col = Math.floor(mouseX / SQUARE_SIZE);
+
+    let isOccupiedUL = false; // Reset isOccupied variable
+    let isOccupiedUR = false; // Reset isOccupied variable
+    let isOccupiedLL = false;
+    let isOccupiedLR = false;
+    let isPushedUL = false;
+    let isPushedUR = false;
+    let isPushedLL = false;
+    let isPushedLR = false;
+
+    if (selectedPiece) {
+        // Check if the click is on a diagonal and within the board bounds
+        if ((row >= 0 && row < NUM_TILES) && (col >= 0 && col < NUM_TILES)) {
+            const rowDiff = row - selectedPiece.row;
+            const colDiff = col - selectedPiece.col;
+
+            // Check upper left diagonal
+            if (row === selectedPiece.row - 1 && col === selectedPiece.col - 1) {
+                // Duplicate the clicked piece to the right and below the diagonal
+                const rightRow = row;
+                const rightCol = col + 1;
+                const belowRow = row + 1;
+                const belowCol = col;
+
+                if (rightRow >= 0 && rightRow < NUM_TILES && rightCol >= 0 && rightCol < NUM_TILES &&
+                    belowRow >= 0 && belowRow < NUM_TILES && belowCol >= 0 && belowCol < NUM_TILES) {
+                    pieces.forEach(piece => {
+                        if ((piece.row === rightRow && piece.col === rightCol) || (piece.row === belowRow && piece.col === belowCol)) {
+                            isOccupiedUL = true;
+                        }
+                    });
+
+                    if (!isOccupiedUL) {
+                        pieces.push({ row: rightRow, col: rightCol });
+                        pieces.push({ row: belowRow, col: belowCol });
+                        isPushedUL = true;
+                    }
+                }
+            } else if (row === selectedPiece.row - 1 && col === selectedPiece.col + 1) {
+                const leftRow = row;
+                const leftCol = col - 1;
+                const belowRow = row + 1;
+                const belowCol = col;
+
+                if (leftRow >= 0 && leftRow < NUM_TILES && leftCol >= 0 && leftCol < NUM_TILES &&
+                    belowRow >= 0 && belowRow < NUM_TILES && belowCol >= 0 && belowCol < NUM_TILES) {
+                    pieces.forEach(piece => {
+                        if ((piece.row === leftRow && piece.col === leftCol) || (piece.row === belowRow && piece.col === belowCol)) {
+                            isOccupiedUR = true;
+                        }
+                    });
+
+                    if (!isOccupiedUR) {
+                        pieces.push({ row: leftRow, col: leftCol});
+                        pieces.push({ row: belowRow, col: belowCol});
+                        isPushedUR = true;
+                    }
+                }
+            } else if (row === selectedPiece.row + 1 && col === selectedPiece.col - 1) {
+                const rightRow = row - 1;
+                const rightCol = col;
+                const aboveRow = row;
+                const aboveCol = col + 1;
+
+                if (rightRow >= 0 && rightRow < NUM_TILES && rightCol >= 0 && rightCol < NUM_TILES &&
+                    aboveRow >= 0 && aboveRow < NUM_TILES && aboveCol >= 0 && aboveCol < NUM_TILES) {
+                    pieces.forEach(piece => {
+                        if ((piece.row === rightRow && piece.col === rightCol) || (piece.row === aboveRow && piece.col === aboveCol)) {
+                            isOccupiedLL = true;
+                        }
+                    });
+
+                    if (!isOccupiedLL) {
+                        pieces.push({ row: rightRow, col: rightCol});
+                        pieces.push({ row: aboveRow, col: aboveCol});
+                        isPushedLL = true;
+                    }
+                }
+            } else if (row === selectedPiece.row + 1 && col === selectedPiece.col + 1) {
+                const leftRow = row - 1;
+                const leftCol = col;
+                const aboveRow = row;
+                const aboveCol = col - 1;
+
+                if (leftRow >= 0 && leftRow < NUM_TILES && leftCol >= 0 && leftCol < NUM_TILES &&
+                    aboveRow >= 0 && aboveRow < NUM_TILES && aboveCol >= 0 && aboveCol < NUM_TILES) {
+                    pieces.forEach(piece => {
+                        if ((piece.row === leftRow && piece.col === leftCol) || (piece.row === aboveRow && piece.col === aboveCol)) {
+                            isOccupiedLR = true;
+                        }
+                    });
+
+                    if (!isOccupiedLR) {
+                        pieces.push({ row: leftRow, col: leftCol});
+                        pieces.push({ row: aboveRow, col: aboveCol});
+                        isPushedLR = true;
+                    }
+                }
+            }
+        }
+        
+        // Remove the original piece only if it's NOT occupied
+        if (isPushedUL || isPushedUR || isPushedLL || isPushedLR) {
+            const index = pieces.indexOf(selectedPiece);
+            if (index !== -1) {
+                pieces.splice(index, 1);
+            }
+        }
+        
+        selectedPiece = null;
+        
+        const sum = sumValuesOutsideRedSquare;
+        console.log("Sum of values of all occupied cells:", sum);
+    } else {
+        // Check if the click is on a piece
+        for (const piece of pieces) {
+            if (piece.row === row && piece.col === col) {
+                selectedPiece = piece;
+                break;
+            }
+        }
+    }
+    
+    drawBoard();
+    updatePieceCount();
+    const sum = sumValuesOutsideRedSquare();
+    console.log("Sum of values of all occupied outside cells:", sum);
+    const sum2 = sumValuesInsideRedSquare();
+    console.log("Sum of values of all occupied inside cells:", sum2);
+    
+    
+    const countElement1 = document.getElementById("value_1");
+    countElement1.textContent = sum;
+    const countElement2 = document.getElementById("value_2");
+    countElement2.textContent = sum2;
+    
+    const counts = sumRedAndOutOfRedValues();
+    removeSumValues(); // Remove existing sum values text
+    drawSumValues(counts.countRed, counts.countOutOfRed);
+}
+
+
+    canvas.addEventListener("click", handleClick);
+
+    document.getElementById("restartButton").addEventListener("click", restartGame);
+
+    drawBoard();
+</script>
+</body>
+</html>
