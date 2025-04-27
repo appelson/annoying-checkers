@@ -1,2 +1,0 @@
-# annoying-checkers
-Videogame
